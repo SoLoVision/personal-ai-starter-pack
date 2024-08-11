@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { IconButton, Button, TextField, List, ListItem, ListItemText } from '@mui/material';
 import { Send, Mic, MicOff, Add } from '@mui/icons-material';
 import { supabase, signIn, signUp, signOut, getCurrentUser, saveConversation, getConversations, getConversationById } from '../supabase';
+import TitleGenerator from './TitleGenerator';
 import './Chat.css';
 
 const Chat = () => {
@@ -217,8 +218,8 @@ const Chat = () => {
         ];
         setMessages(prevMessages => [...prevMessages, ...newMessages]);
         if (!currentConversation) {
-          console.log('Creating new conversation with name:', data.conversationName);
-          handleCreateNewConversation(data.conversationName || `Conversation ${conversations.length + 1}`, newMessages);
+          console.log('Creating new conversation');
+          handleCreateNewConversation(newMessages);
         } else {
           console.log('Updating existing conversation:', currentConversation.id);
           saveConversation(user.id, currentConversation.title, [...messages, ...newMessages]);
@@ -259,7 +260,7 @@ const Chat = () => {
     }
   };
 
-  const handleCreateNewConversation = async (title, initialMessages) => {
+  const handleCreateNewConversation = async (initialMessages) => {
     console.log('Attempting to create new conversation. User:', user);
     if (!user) {
       console.error('User is not logged in');
@@ -268,7 +269,8 @@ const Chat = () => {
     }
     try {
       console.log('Saving conversation for user ID:', user.id);
-      const { data, error } = await saveConversation(user.id, title, initialMessages);
+      const tempTitle = 'New Conversation';
+      const { data, error } = await saveConversation(user.id, tempTitle, initialMessages);
       if (error) {
         console.error('Error creating new conversation:', error);
         setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to create a new conversation. Please try again.", sender: 'system' }]);
@@ -284,6 +286,26 @@ const Chat = () => {
     } catch (error) {
       console.error('Unexpected error creating conversation:', error);
       setMessages(prevMessages => [...prevMessages, { text: "Error: An unexpected error occurred. Please try again.", sender: 'system' }]);
+    }
+  };
+
+  const handleTitleGenerated = async (title) => {
+    if (currentConversation) {
+      try {
+        const { data, error } = await supabase
+          .from('conversations')
+          .update({ title })
+          .eq('id', currentConversation.id);
+        
+        if (error) {
+          console.error('Error updating conversation title:', error);
+        } else {
+          setCurrentConversation({ ...currentConversation, title });
+          await fetchConversations();
+        }
+      } catch (error) {
+        console.error('Unexpected error updating conversation title:', error);
+      }
     }
   };
 
@@ -328,6 +350,7 @@ const Chat = () => {
         )}
       </div>
       <div className="chat-main">
+        <TitleGenerator messages={messages} onTitleGenerated={handleTitleGenerated} />
         <div className="messages-container">
           {messages.map((message, index) => (
             <div key={index} className={`message ${message.sender}`}>

@@ -160,3 +160,25 @@ def get_last_interaction():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
+
+@app.route('/api/generate_title', methods=['POST'])
+def generate_title():
+    try:
+        messages = request.json['messages']
+        if not messages:
+            return jsonify({'title': 'New Conversation'})
+
+        # Use the first message as the basis for the title
+        first_message = messages[0]['text']
+        
+        # Truncate the message if it's too long
+        max_title_length = 50
+        title = first_message[:max_title_length].strip()
+        
+        # Add ellipsis if the title was truncated
+        if len(first_message) > max_title_length:
+            title += '...'
+
+        return jsonify({'title': title})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
