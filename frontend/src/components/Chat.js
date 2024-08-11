@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { IconButton, TextField, Paper, List, ListItem, ListItemText, ListItemAvatar, Avatar } from '@mui/material';
 import { Send, Mic, MicOff } from '@mui/icons-material';
 
@@ -10,30 +10,11 @@ const Chat = () => {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
 
-  useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        mediaRecorderRef.current = new MediaRecorder(stream);
-        
-        mediaRecorderRef.current.ondataavailable = (event) => {
-          chunksRef.current.push(event.data);
-        };
-
-        mediaRecorderRef.current.onstop = () => {
-          const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
-          sendAudioToServer(audioBlob);
-          chunksRef.current = [];
-        };
-      })
-      .catch(error => {
-        console.error('Error accessing microphone:', error);
-      });
-  }, []);
-
-  const sendAudioToServer = (audioBlob) => {
+  const sendAudioToServer = useCallback((audioBlob) => {
     const formData = new FormData();
     formData.append('audio', audioBlob, 'audio.wav');
 
+    setIsConnecting(true);
     fetch('http://localhost:5000/api/transcribe', {
       method: 'POST',
       body: formData,
@@ -64,8 +45,37 @@ const Chat = () => {
       .catch(error => {
         console.error('Error:', error);
         setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to process audio. Please try again.", sender: 'system' }]);
+      })
+      .finally(() => {
+        setIsConnecting(false);
       });
-  };
+  }, []);
+
+  const setupMediaRecorder = useCallback(() => {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          chunksRef.current.push(event.data);
+        };
+
+        mediaRecorderRef.current.onstop = () => {
+          const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
+          sendAudioToServer(audioBlob);
+          chunksRef.current = [];
+        };
+
+        console.log('MediaRecorder setup complete');
+      })
+      .catch(error => {
+        console.error('Error accessing microphone:', error);
+      });
+  }, [sendAudioToServer]);
+
+  useEffect(() => {
+    setupMediaRecorder();
+  }, [setupMediaRecorder]);
 
   const handleSend = () => {
     if (input.trim()) {
