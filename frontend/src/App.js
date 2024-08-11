@@ -1,8 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Container, AppBar, Toolbar, Typography } from '@mui/material';
-import Home from './pages/Home';
-import Chat from './components/Chat';
 import Chat from './components/Chat';
 
 function App() {
@@ -17,9 +15,7 @@ function App() {
       </AppBar>
       <Container>
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/chat" element={<Chat />} />
+          <Route path="/" element={<Chat />} />
         </Routes>
       </Container>
     </div>

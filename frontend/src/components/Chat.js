@@ -35,9 +35,20 @@ const Chat = () => {
     if (input.trim()) {
       setMessages([...messages, { text: input, sender: 'user' }]);
       setInput('');
-      // Here you would send the input to your AI backend and get a response
-      // For now, we'll just echo the user's message
-      setMessages([...messages, { text: input, sender: 'user' }, { text: `Echo: ${input}`, sender: 'ai' }]);
+      fetch('http://localhost:5000/api/transcribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: input }),
+      })
+        .then(response => response.json())
+        .then(data => {
+          setMessages([...messages, { text: input, sender: 'user' }, { text: data.transcription, sender: 'ai' }]);
+        })
+        .catch(error => {
+          console.error('Error:', error);
+        });
     }
   };
 

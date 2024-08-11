@@ -8,6 +8,8 @@ from datetime import datetime
 from assistants.assistants import AssElevenPAF, GroqElevenPAF, OpenAIPAF
 import threading
 from dotenv import load_dotenv
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from modules.constants import (
     PERSONAL_AI_ASSISTANT_PROMPT_HEAD,
     FS,
@@ -19,6 +21,8 @@ from modules.constants import (
 
 from modules.typings import Interaction
 
+app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 load_dotenv()
 
 
@@ -95,7 +99,8 @@ def build_prompt(latest_input: str, previous_interactions: List[Interaction]) ->
     return prepared_prompt
 
 
-def main():
+@app.route('/api/transcribe', methods=['POST'])
+def transcribe():
     """
     In a loop, we:
     1. Press enter to start recording
@@ -108,7 +113,7 @@ def main():
     8. Update previous interactions
     """
 
-    previous_interactions: List[Interaction] = []
+    previous_interactions = []
 
     if ASSISTANT_TYPE == "OpenAIPAF":
 
@@ -168,4 +173,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    app.run(host='0.0.0.0', port=5000)
