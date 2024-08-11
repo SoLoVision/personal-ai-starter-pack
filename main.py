@@ -62,6 +62,8 @@ def process_input():
     global previous_interactions, assistant
     logger.info("Received request to /api/process_input")
     
+    audio_enabled = request.form.get('audio_enabled', 'true').lower() == 'true'
+    
     if 'audio' in request.files:
         audio_file = request.files['audio']
         filename = f"audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
@@ -94,13 +96,6 @@ def process_input():
         response = assistant.think(prompt)
         logger.info(f"AI assistant response: {response}")
 
-        # Generate audio from the response
-        audio_data = assistant.generate_voice_audio(response)
-        
-        # Create an in-memory file-like object
-        audio_io = io.BytesIO(audio_data)
-        audio_io.seek(0)
-
         # Update previous interactions
         previous_interactions.append(Interaction(role="human", content=user_input))
         previous_interactions.append(Interaction(role="assistant", content=response))
@@ -110,12 +105,22 @@ def process_input():
         if len(previous_interactions) > CONVO_TRAIL_CUTOFF:
             previous_interactions = previous_interactions[-CONVO_TRAIL_CUTOFF:]
 
-        return send_file(
-            audio_io,
-            mimetype="audio/mpeg",
-            as_attachment=True,
-            download_name="response.mp3"
-        )
+        if audio_enabled:
+            # Generate audio from the response
+            audio_data = assistant.generate_voice_audio(response)
+            
+            # Create an in-memory file-like object
+            audio_io = io.BytesIO(audio_data)
+            audio_io.seek(0)
+
+            return send_file(
+                audio_io,
+                mimetype="audio/mpeg",
+                as_attachment=True,
+                download_name="response.mp3"
+            )
+        else:
+            return jsonify({"response": response})
     except Exception as e:
         logger.error(f"An error occurred during processing: {e}")
         return jsonify({"error": "An error occurred during processing"}), 500

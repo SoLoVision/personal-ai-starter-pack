@@ -13,7 +13,7 @@ function App() {
           </Typography>
         </Toolbar>
       </AppBar>
-      <Container>
+      <Container style={{ paddingTop: '20px', paddingBottom: '20px' }}>
         <Routes>
           <Route path="/" element={<Chat />} />
         </Routes>

@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { IconButton, TextField, Paper, List, ListItem, ListItemText, ListItemAvatar, Avatar } from '@mui/material';
+import { IconButton, Switch, FormControlLabel } from '@mui/material';
 import { Send, Mic, MicOff } from '@mui/icons-material';
+import { MainContainer, ChatContainer, MessageList, Message, MessageInput, TypingIndicator } from '@chatscope/chat-ui-kit-react';
+import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [listening, setListening] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
 
@@ -37,6 +40,7 @@ const Chat = () => {
     } else {
       formData.append('text', input);
     }
+    formData.append('audio_enabled', audioEnabled);
 
     fetch('http://localhost:5000/api/process_input', {
       method: 'POST',
@@ -46,12 +50,14 @@ const Chat = () => {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-        return response.blob();
+        return audioEnabled ? response.blob() : response.json();
       })
-      .then(blob => {
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audio.play();
+      .then(data => {
+        if (audioEnabled) {
+          const audioUrl = URL.createObjectURL(data);
+          const audio = new Audio(audioUrl);
+          audio.play();
+        }
         
         // Fetch the transcription and response separately
         return fetch('http://localhost:5000/api/get_last_interaction');
@@ -61,19 +67,19 @@ const Chat = () => {
         console.log('Data received:', data);
         setMessages(prevMessages => [
           ...prevMessages, 
-          { text: data.transcription, sender: 'user' },
-          { text: data.response, sender: 'ai' }
+          { message: data.transcription, sender: 'user', direction: 'outgoing' },
+          { message: data.response, sender: 'ai', direction: 'incoming' }
         ]);
       })
       .catch(error => {
         console.error('Error:', error);
-        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to process input. Please try again.", sender: 'system' }]);
+        setMessages(prevMessages => [...prevMessages, { message: "Error: Unable to process input. Please try again.", sender: 'system', direction: 'incoming' }]);
       });
   };
 
   const handleSend = () => {
     if (input.trim()) {
-      setMessages(prevMessages => [...prevMessages, { text: input, sender: 'user' }]);
+      setMessages(prevMessages => [...prevMessages, { message: input, sender: 'user', direction: 'outgoing' }]);
       sendInputToServer(input);
       setInput('');
     }
@@ -96,23 +102,28 @@ const Chat = () => {
   };
 
   return (
-    <Paper style={{ padding: '1em', height: '80vh', display: 'flex', flexDirection: 'column' }}>
-      <List style={{ flexGrow: 1, overflow: 'auto' }}>
-        {messages.map((message, index) => (
-          <ListItem key={index}>
-            <ListItemAvatar>
-              <Avatar>{message.sender === 'user' ? 'U' : 'AI'}</Avatar>
-            </ListItemAvatar>
-            <ListItemText primary={message.text} />
-          </ListItem>
-        ))}
-      </List>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <TextField
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          fullWidth
+    <div style={{ position: 'relative', height: '80vh' }}>
+      <MainContainer>
+        <ChatContainer>
+          <MessageList>
+            {messages.map((message, index) => (
+              <Message key={index} model={message} />
+            ))}
+          </MessageList>
+          <MessageInput
+            placeholder="Type message here"
+            value={input}
+            onChange={(val) => setInput(val)}
+            onSend={handleSend}
+            attachButton={false}
+            sendButton={false}
+          />
+        </ChatContainer>
+      </MainContainer>
+      <div style={{ position: 'absolute', bottom: '10px', right: '10px', display: 'flex', alignItems: 'center' }}>
+        <FormControlLabel
+          control={<Switch checked={audioEnabled} onChange={(e) => setAudioEnabled(e.target.checked)} />}
+          label="Audio Replies"
         />
         <IconButton onClick={handleSend}>
           <Send />
@@ -123,7 +134,7 @@ const Chat = () => {
         {listening && <div style={{ color: 'red', marginLeft: '10px' }}>Recording...</div>}
         {isConnecting && <div style={{ color: 'blue', marginLeft: '10px' }}>Connecting...</div>}
       </div>
-    </Paper>
+    </div>
   );
 };
 
