@@ -41,3 +41,6 @@ modules/__pycache__
 *.mp4
 
 *.json
+
+# Allow frontend directory
+!frontend/
