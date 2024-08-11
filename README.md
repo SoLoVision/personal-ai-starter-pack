@@ -1,4 +1,4 @@
-# Fast Personal AI Assistant
+# SoLoAssist - Fast Personal AI Assistant
 > Fast TTS & STT
 >
 > A quick start personal AI assistant framework using OpenAI, Groq, AssemblyAI and ElevenLabs.
