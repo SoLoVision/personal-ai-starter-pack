@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://your-project-url.supabase.co';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'your-anon-key';
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-if (!process.env.REACT_APP_SUPABASE_URL || !process.env.REACT_APP_SUPABASE_ANON_KEY) {
-  console.warn('Supabase URL or Anonymous Key is missing. Please check your environment variables.');
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Supabase URL or Anonymous Key is missing. Please check your environment variables.');
+  throw new Error('Supabase configuration is incomplete');
+} else {
+  console.log('Supabase URL:', supabaseUrl);
+  console.log('Supabase Anon Key:', supabaseAnonKey.substring(0, 5) + '...');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
