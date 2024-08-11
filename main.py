@@ -1,15 +1,13 @@
 import time
 from typing import List
 from modules.typings import Interaction
-import sounddevice as sd
-import wave
 import os
 from datetime import datetime
 from assistants.assistants import AssElevenPAF, GroqElevenPAF, OpenAIPAF
-import threading
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
+import io
 from modules.constants import (
     PERSONAL_AI_ASSISTANT_PROMPT_HEAD,
     FS,
@@ -36,60 +34,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 load_dotenv()
 
 
-def record_audio(duration=DURATION, fs=FS, channels=CHANNELS):
-    """
-    Simple function to record audio from the microphone.
-    Gives you DURATION seconds of audio to speak into the microphone.
-    After DURATION seconds, the recording will stop.
-    Hit enter to stop the recording at any time.
-    """
-
-    global recording, stop_event
-
-    logger.info("🔴 Recording...")
-    recording = sd.rec(
-        int(duration * fs), samplerate=fs, channels=channels, dtype="int16"
-    )
-
-    def duration_warning():
-        time.sleep(duration)
-        if not stop_event.is_set():
-            logger.warning(
-                "⚠️ Record limit hit - your assistant won't hear what you're saying now. Increase the duration."
-            )
-    warning_thread = threading.Thread(target=duration_warning)
-    warning_thread.daemon = (
-        True  # Set the thread as daemon so it doesn't block program exit
-    )
-    warning_thread.start()
-
-    input("🟡 Press Enter to stop recording...")
-    stop_event.set()
-    sd.stop()
-
-    logger.info(f"🍞 Recording Chunk Complete")
-    return recording
-
-
-def create_audio_file(recording):
-    """
-    Creates an audio file from the recording.
-    """
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"audio_{timestamp}.wav"
-
-    with wave.open(filename, "wb") as wf:
-        wf.setnchannels(CHANNELS)
-        wf.setsampwidth(2)
-        wf.setframerate(FS)
-        wf.writeframes(recording)
-
-    file_size = os.path.getsize(filename)
-
-    logger.info(f"📁 File {filename} has been saved with a size of {file_size} bytes.")
-
-    return filename
+# Removed unused functions
 
 
 def build_prompt(latest_input: str, previous_interactions: List[Interaction]) -> str:
@@ -145,6 +90,13 @@ def transcribe():
         response = assistant.think(prompt)
         logger.info(f"AI assistant response: {response}")
 
+        # Generate audio from the response
+        audio_data = assistant.generate_voice_audio(response)
+        
+        # Create an in-memory file-like object
+        audio_io = io.BytesIO(audio_data)
+        audio_io.seek(0)
+
         # Update previous interactions
         previous_interactions.append(Interaction(role="human", content=transcription))
         previous_interactions.append(Interaction(role="assistant", content=response))
@@ -154,7 +106,12 @@ def transcribe():
         if len(previous_interactions) > CONVO_TRAIL_CUTOFF:
             previous_interactions = previous_interactions[-CONVO_TRAIL_CUTOFF:]
 
-        return jsonify({"transcription": transcription, "response": response}), 200
+        return send_file(
+            audio_io,
+            mimetype="audio/mpeg",
+            as_attachment=True,
+            download_name="response.mp3"
+        )
     except Exception as e:
         logger.error(f"An error occurred during transcription: {e}")
         return jsonify({"error": "An error occurred during transcription"}), 500
@@ -163,6 +120,18 @@ def transcribe():
             os.remove(filename)
             logger.info("Audio file removed.")
 
+
+@app.route('/api/get_last_interaction', methods=['GET'])
+def get_last_interaction():
+    if len(previous_interactions) >= 2:
+        last_human = previous_interactions[-2]
+        last_ai = previous_interactions[-1]
+        return jsonify({
+            "transcription": last_human.content,
+            "response": last_ai.content
+        })
+    else:
+        return jsonify({"error": "No interactions available"}), 404
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)

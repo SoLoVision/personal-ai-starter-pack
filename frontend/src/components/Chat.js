@@ -38,6 +38,20 @@ const Chat = () => {
       method: 'POST',
       body: formData,
     })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audio.play();
+        
+        // Fetch the transcription and response separately
+        return fetch('http://localhost:5000/api/get_last_interaction');
+      })
       .then(response => response.json())
       .then(data => {
         console.log('Data received:', data);
