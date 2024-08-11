@@ -40,7 +40,7 @@ modules/__pycache__
 *.flac
 *.m4a
 *.mp4
-
+build
 
 frontend/build
 
