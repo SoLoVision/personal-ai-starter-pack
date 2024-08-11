@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { IconButton, Button, TextField, List, ListItem, ListItemText } from '@mui/material';
 import { Send, Mic, MicOff, Add } from '@mui/icons-material';
 import { supabase, signIn, signUp, signOut, getCurrentUser, saveConversation, getConversations, getConversationById } from '../supabase';
@@ -19,50 +19,70 @@ const Chat = () => {
   const chunksRef = useRef([]);
   const messagesEndRef = useRef(null);
 
+  const checkUser = useCallback(async () => {
+    const currentUser = await getCurrentUser();
+    setUser(currentUser);
+  }, []);
+
+  const fetchConversations = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+    try {
+      const { data, error } = await getConversations(user.id);
+      if (error) {
+        console.error('Error fetching conversations:', error);
+      } else if (data) {
+        setConversations(data);
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching conversations:', error);
+    }
+  }, [user]);
+
   useEffect(() => {
     const initializeUser = async () => {
       await checkUser();
       setupMediaRecorder();
     };
     initializeUser();
-  }, []);
 
-  useEffect(() => {
-    if (user) {
-      console.log('User detected:', user);
-      fetchConversations();
-    } else {
-      console.log('No user detected');
-    }
-  }, [user]);
-
-  // Add this new effect to persist user state
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchConversations();
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setConversations([]);
+        setCurrentConversation(null);
+      }
     });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
     };
-  }, []);
+  }, [checkUser, fetchConversations]);
+
+  useEffect(() => {
+    if (user) {
+      fetchConversations();
+    }
+  }, [user, fetchConversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const checkUser = async () => {
-    console.log('Checking current user...');
-    const currentUser = await getCurrentUser();
-    console.log('Current user:', currentUser);
-    setUser(currentUser);
-  };
-
   const setupMediaRecorder = () => {
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
         mediaRecorderRef.current = new MediaRecorder(stream);
-        
+      
         mediaRecorderRef.current.ondataavailable = (event) => {
           chunksRef.current.push(event.data);
         };
@@ -75,27 +95,23 @@ const Chat = () => {
       })
       .catch(error => {
         console.error('Error accessing microphone:', error);
+        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to access microphone. Please check your browser settings.", sender: 'system' }]);
       });
   };
 
-  const fetchConversations = async () => {
-    if (!user) {
-      console.error('Cannot fetch conversations: User is not logged in');
-      return;
-    }
-    try {
-      const { data, error } = await getConversations(user.id);
-      if (error) {
-        console.error('Error fetching conversations:', error);
-      } else if (data) {
-        setConversations(data);
-      } else {
-        console.error('No data returned when fetching conversations');
-      }
-    } catch (error) {
-      console.error('Unexpected error fetching conversations:', error);
+  const handleVoiceInput = () => {
+    if (listening) {
+      console.log('Stopping recording...');
+      mediaRecorderRef.current.stop();
+      setListening(false);
+    } else {
+      console.log('Starting recording...');
+      chunksRef.current = [];
+      mediaRecorderRef.current.start();
+      setListening(true);
     }
   };
+
 
   const handleSignIn = async () => {
     console.log('Attempting to sign in with email:', email);
@@ -226,17 +242,7 @@ const Chat = () => {
     sendInputToServer(audioBlob, true);
   };
 
-  const handleVoiceInput = () => {
-    if (listening) {
-      console.log('Stopping recording...');
-      mediaRecorderRef.current.stop();
-      setListening(false);
-    } else {
-      console.log('Starting recording...');
-      mediaRecorderRef.current.start();
-      setListening(true);
-    }
-  };
+
 
   const handleNewConversation = async () => {
     setCurrentConversation(null);
@@ -268,7 +274,8 @@ const Chat = () => {
         setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to create a new conversation. Please try again.", sender: 'system' }]);
       } else if (data) {
         console.log('New conversation created:', data);
-        setCurrentConversation(data);
+        setCurrentConversation(data[0]);
+        setMessages(initialMessages);
         await fetchConversations();
       } else {
         console.error('No data returned when creating conversation');
