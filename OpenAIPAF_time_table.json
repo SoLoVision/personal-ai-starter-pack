@@ -2,157 +2,193 @@
   {
     "assistant": "OpenAIPAF",
     "function": "generate_voice_audio",
-    "duration": "2.22",
+    "duration": "1.45",
     "position": 0
   },
   {
     "assistant": "OpenAIPAF",
     "function": "think",
-    "duration": "1.25",
+    "duration": "1.13",
     "position": 1
   },
   {
     "assistant": "OpenAIPAF",
     "function": "transcribe",
-    "duration": "0.90",
+    "duration": "1.25",
     "position": 2
   },
   {
     "assistant": "OpenAIPAF",
-    "function": "think",
-    "duration": "0.84",
+    "function": "generate_voice_audio",
+    "duration": "3.23",
     "position": 3
   },
   {
     "assistant": "OpenAIPAF",
-    "function": "transcribe",
-    "duration": "1.10",
+    "function": "think",
+    "duration": "1.25",
     "position": 4
   },
   {
     "assistant": "OpenAIPAF",
-    "function": "generate_voice_audio",
-    "duration": "2.25",
+    "function": "transcribe",
+    "duration": "1.06",
     "position": 5
   },
   {
     "assistant": "OpenAIPAF",
-    "function": "think",
-    "duration": "1.18",
+    "function": "generate_voice_audio",
+    "duration": "2.22",
     "position": 6
   },
   {
     "assistant": "OpenAIPAF",
-    "function": "transcribe",
-    "duration": "2.39",
+    "function": "think",
+    "duration": "1.25",
     "position": 7
   },
   {
     "assistant": "OpenAIPAF",
-    "function": "generate_voice_audio",
-    "duration": "2.46",
+    "function": "transcribe",
+    "duration": "0.90",
     "position": 8
   },
   {
     "assistant": "OpenAIPAF",
     "function": "think",
-    "duration": "1.47",
+    "duration": "0.84",
     "position": 9
   },
   {
     "assistant": "OpenAIPAF",
     "function": "transcribe",
-    "duration": "2.85",
+    "duration": "1.10",
     "position": 10
   },
   {
     "assistant": "OpenAIPAF",
     "function": "generate_voice_audio",
-    "duration": "1.79",
+    "duration": "2.25",
     "position": 11
   },
   {
     "assistant": "OpenAIPAF",
     "function": "think",
-    "duration": "0.78",
+    "duration": "1.18",
     "position": 12
   },
   {
     "assistant": "OpenAIPAF",
     "function": "transcribe",
-    "duration": "1.05",
+    "duration": "2.39",
     "position": 13
   },
   {
     "assistant": "OpenAIPAF",
     "function": "generate_voice_audio",
-    "duration": "1.44",
+    "duration": "2.46",
     "position": 14
   },
   {
     "assistant": "OpenAIPAF",
     "function": "think",
-    "duration": "1.13",
+    "duration": "1.47",
     "position": 15
   },
   {
     "assistant": "OpenAIPAF",
     "function": "transcribe",
-    "duration": "1.08",
+    "duration": "2.85",
     "position": 16
   },
   {
     "assistant": "OpenAIPAF",
     "function": "generate_voice_audio",
-    "duration": "1.78",
+    "duration": "1.79",
     "position": 17
   },
   {
     "assistant": "OpenAIPAF",
     "function": "think",
-    "duration": "0.69",
+    "duration": "0.78",
     "position": 18
   },
   {
     "assistant": "OpenAIPAF",
     "function": "transcribe",
-    "duration": "1.10",
+    "duration": "1.05",
     "position": 19
   },
   {
     "assistant": "OpenAIPAF",
     "function": "generate_voice_audio",
-    "duration": "1.33",
+    "duration": "1.44",
     "position": 20
   },
   {
     "assistant": "OpenAIPAF",
     "function": "think",
-    "duration": "0.82",
+    "duration": "1.13",
     "position": 21
   },
   {
     "assistant": "OpenAIPAF",
     "function": "transcribe",
-    "duration": "1.12",
+    "duration": "1.08",
     "position": 22
   },
   {
     "assistant": "OpenAIPAF",
     "function": "generate_voice_audio",
-    "duration": "1.83",
+    "duration": "1.78",
     "position": 23
   },
   {
     "assistant": "OpenAIPAF",
     "function": "think",
-    "duration": "0.94",
+    "duration": "0.69",
     "position": 24
   },
   {
     "assistant": "OpenAIPAF",
     "function": "transcribe",
-    "duration": "1.85",
+    "duration": "1.10",
     "position": 25
+  },
+  {
+    "assistant": "OpenAIPAF",
+    "function": "generate_voice_audio",
+    "duration": "1.33",
+    "position": 26
+  },
+  {
+    "assistant": "OpenAIPAF",
+    "function": "think",
+    "duration": "0.82",
+    "position": 27
+  },
+  {
+    "assistant": "OpenAIPAF",
+    "function": "transcribe",
+    "duration": "1.12",
+    "position": 28
+  },
+  {
+    "assistant": "OpenAIPAF",
+    "function": "generate_voice_audio",
+    "duration": "1.83",
+    "position": 29
+  },
+  {
+    "assistant": "OpenAIPAF",
+    "function": "think",
+    "duration": "0.94",
+    "position": 30
+  },
+  {
+    "assistant": "OpenAIPAF",
+    "function": "transcribe",
+    "duration": "1.85",
+    "position": 31
   }
 ]

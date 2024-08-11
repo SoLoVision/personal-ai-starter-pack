@@ -1,7 +1,7 @@
 # CONSTANTS update these to fit your personal flow
 
 PERSONAL_AI_ASSISTANT_NAME = "Ada"
-HUMAN_COMPANION_NAME = "Dan"
+HUMAN_COMPANION_NAME = "SoLo"
 
 CONVO_TRAIL_CUTOFF = 30
 
@@ -9,15 +9,15 @@ FS = 44100  # Sample rate
 CHANNELS = 1  # Mono audio
 DURATION = 15  # Duration of the recording in seconds
 
-ELEVEN_LABS_PRIMARY_SOLID_VOICE = "WejK3H1m7MI9CHnIjW9K"
-ELEVEN_LABS_CRINGE_VOICE = "uyfkySFC5J00qZ6iLAdh"
+ELEVEN_LABS_PRIMARY_SOLID_VOICE = "HhQxVs1ImLciTDxXKHjE"
+ELEVEN_LABS_CRINGE_VOICE = "7IbgKAqJBjOWEb2ILByC"
 
 
 # --------------------------- ASSISTANT TYPES ---------------------------
 
-# ASSISTANT_TYPE = "GroqElevenPAF"
+ASSISTANT_TYPE = "GroqElevenPAF"
 
-ASSISTANT_TYPE = "OpenAIPAF"
+# ASSISTANT_TYPE = "OpenAIPAF"
 
 # ASSISTANT_TYPE = "AssElevenPAF"
 

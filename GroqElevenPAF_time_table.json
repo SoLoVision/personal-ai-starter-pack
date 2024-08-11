@@ -1,0 +1,44 @@
+[
+  {
+    "assistant": "GroqElevenPAF",
+    "function": "generate_voice_audio",
+    "duration": "1.70",
+    "position": 0
+  },
+  {
+    "assistant": "GroqElevenPAF",
+    "function": "think",
+    "duration": "1.10",
+    "position": 1
+  },
+  {
+    "assistant": "GroqElevenPAF",
+    "function": "transcribe",
+    "duration": "0.58",
+    "position": 2
+  },
+  {
+    "assistant": "GroqElevenPAF",
+    "function": "think",
+    "duration": "0.87",
+    "position": 3
+  },
+  {
+    "assistant": "GroqElevenPAF",
+    "function": "transcribe",
+    "duration": "0.57",
+    "position": 4
+  },
+  {
+    "assistant": "GroqElevenPAF",
+    "function": "think",
+    "duration": "1.02",
+    "position": 5
+  },
+  {
+    "assistant": "GroqElevenPAF",
+    "function": "transcribe",
+    "duration": "0.55",
+    "position": 6
+  }
+]
