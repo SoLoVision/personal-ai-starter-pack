@@ -26,7 +26,7 @@ venv.bak/
 .env.billing.yml
 
 .aider*
-
+frontend/node_modules
 *.wav
 **.pyc
 modules/__pycache__
@@ -43,4 +43,4 @@ modules/__pycache__
 *.json
 
 # Allow frontend directory
-!frontend/
+
