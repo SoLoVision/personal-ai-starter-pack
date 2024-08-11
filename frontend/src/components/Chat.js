@@ -78,13 +78,19 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const setupMediaRecorder = () => {
+  const sendAudioToServer = (audioBlob) => {
+    sendInputToServer(audioBlob, true);
+  };
+
+  const setupMediaRecorder = useCallback(() => {
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
         mediaRecorderRef.current = new MediaRecorder(stream);
       
         mediaRecorderRef.current.ondataavailable = (event) => {
-          chunksRef.current.push(event.data);
+          if (event.data.size > 0) {
+            chunksRef.current.push(event.data);
+          }
         };
 
         mediaRecorderRef.current.onstop = () => {
@@ -92,26 +98,37 @@ const Chat = () => {
           sendAudioToServer(audioBlob);
           chunksRef.current = [];
         };
+
+        console.log('MediaRecorder setup complete');
       })
       .catch(error => {
         console.error('Error accessing microphone:', error);
         setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to access microphone. Please check your browser settings.", sender: 'system' }]);
       });
-  };
+  }, []);
+
+  useEffect(() => {
+    setupMediaRecorder();
+  }, [setupMediaRecorder]);
 
   const handleVoiceInput = () => {
     if (listening) {
       console.log('Stopping recording...');
-      mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
       setListening(false);
     } else {
       console.log('Starting recording...');
-      chunksRef.current = [];
-      mediaRecorderRef.current.start();
-      setListening(true);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
+        chunksRef.current = [];
+        mediaRecorderRef.current.start();
+        setListening(true);
+      } else {
+        console.error('MediaRecorder is not ready or in an invalid state');
+      }
     }
   };
-
 
   const handleSignIn = async () => {
     console.log('Attempting to sign in with email:', email);
@@ -237,11 +254,6 @@ const Chat = () => {
       setInput('');
     }
   };
-
-  const sendAudioToServer = (audioBlob) => {
-    sendInputToServer(audioBlob, true);
-  };
-
 
 
   const handleNewConversation = async () => {

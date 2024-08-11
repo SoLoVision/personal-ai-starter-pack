@@ -53,3 +53,11 @@ export const getConversationById = async (conversationId) => {
     .single();
   return { data, error };
 };
+
+export const updateConversationTitle = async (conversationId, newTitle) => {
+  const { data, error } = await supabase
+    .from('conversations')
+    .update({ title: newTitle })
+    .eq('id', conversationId);
+  return { data, error };
+};
