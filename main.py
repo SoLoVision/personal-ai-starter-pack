@@ -18,8 +18,13 @@ from modules.constants import (
     CONVO_TRAIL_CUTOFF,
     ASSISTANT_TYPE,
 )
+import logging
 
 from modules.typings import Interaction
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -34,7 +39,7 @@ def record_audio(duration=DURATION, fs=FS, channels=CHANNELS):
     Hit enter to stop the recording at any time.
     """
 
-    print("🔴 Recording...")
+    logger.info("🔴 Recording...")
     recording = sd.rec(
         int(duration * fs), samplerate=fs, channels=channels, dtype="int16"
     )
@@ -42,7 +47,7 @@ def record_audio(duration=DURATION, fs=FS, channels=CHANNELS):
     def duration_warning():
         time.sleep(duration)
         if not stop_event.is_set():
-            print(
+            logger.warning(
                 "⚠️ Record limit hit - your assistant won't hear what you're saying now. Increase the duration."
             )
 
@@ -57,7 +62,7 @@ def record_audio(duration=DURATION, fs=FS, channels=CHANNELS):
     stop_event.set()
     sd.stop()
 
-    print(f"🍞 Recording Chunk Complete")
+    logger.info(f"🍞 Recording Chunk Complete")
     return recording
 
 
@@ -77,7 +82,7 @@ def create_audio_file(recording):
 
     file_size = os.path.getsize(filename)
 
-    print(f"📁 File {filename} has been saved with a size of {file_size} bytes.")
+    logger.info(f"📁 File {filename} has been saved with a size of {file_size} bytes.")
 
     return filename
 
@@ -118,17 +123,17 @@ def transcribe():
     if ASSISTANT_TYPE == "OpenAIPAF":
 
         assistant = OpenAIPAF()
-        print("🚀 Initialized OpenAI Personal AI Assistant...")
+        logger.info("🚀 Initialized OpenAI Personal AI Assistant...")
 
     elif ASSISTANT_TYPE == "AssElevenPAF":
 
         assistant = AssElevenPAF()
-        print("🚀 Initialized AssemblyAI-ElevenLabs Personal AI Assistant...")
+        logger.info("🚀 Initialized AssemblyAI-ElevenLabs Personal AI Assistant...")
 
     elif ASSISTANT_TYPE == "GroqElevenPAF":
 
         assistant = GroqElevenPAF()
-        print("🚀 Initialized Groq-ElevenLabs Personal AI Assistant...")
+        logger.info("🚀 Initialized Groq-ElevenLabs Personal AI Assistant...")
 
     else:
         raise ValueError(f"Invalid assistant type: {ASSISTANT_TYPE}")
@@ -143,12 +148,12 @@ def transcribe():
             filename = create_audio_file(recording)
             transcription = assistant.transcribe(filename)
 
-            print(f"📝 Your Input Transcription: '{transcription}'")
+            logger.info(f"📝 Your Input Transcription: '{transcription}'")
 
             prompt = build_prompt(transcription, previous_interactions)
             response = assistant.think(prompt)
 
-            print(f"🤖 Your Personal AI Assistant Response: '{response}'")
+            logger.info(f"🤖 Your Personal AI Assistant Response: '{response}'")
 
             assistant.speak(response)
 
@@ -166,9 +171,9 @@ def transcribe():
             if len(previous_interactions) > CONVO_TRAIL_CUTOFF:
                 previous_interactions = previous_interactions[-CONVO_TRAIL_CUTOFF:]
 
-            print("\nReady for next interaction. Press Ctrl+C to exit.")
+            logger.info("\nReady for next interaction. Press Ctrl+C to exit.")
         except KeyboardInterrupt:
-            print("\nExiting the program.")
+            logger.info("\nExiting the program.")
             break
 
 

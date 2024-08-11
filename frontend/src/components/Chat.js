@@ -33,6 +33,7 @@ const Chat = () => {
 
   const handleSend = () => {
     if (input.trim()) {
+      console.log('User input:', input);
       setMessages([...messages, { text: input, sender: 'user' }]);
       setInput('');
       fetch('http://localhost:5000/api/transcribe', {
@@ -42,11 +43,16 @@ const Chat = () => {
         },
         body: JSON.stringify({ text: input }),
       })
-        .then(response => response.json())
+        .then(response => {
+          console.log('Response from server:', response);
+          return response.json();
+        })
         .then(data => {
+          console.log('Data received:', data);
           setMessages([...messages, { text: input, sender: 'user' }, { text: data.transcription, sender: 'ai' }]);
         })
         .catch(error => {
+          console.error('Error:', error);
           console.error('Error:', error);
         });
     }
