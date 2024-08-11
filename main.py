@@ -6,7 +6,7 @@ from datetime import datetime
 from assistants.assistants import AssElevenPAF, GroqElevenPAF, OpenAIPAF
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 import io
 from modules.constants import (
     PERSONAL_AI_ASSISTANT_PROMPT_HEAD,
@@ -24,19 +24,15 @@ recording = None
 assistant = None
 previous_interactions = []
 
-from modules.typings import Interaction
-
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# Configure CORS
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
 load_dotenv()
-
-
-# Removed unused functions
-
 
 def build_prompt(latest_input: str, previous_interactions: List[Interaction]) -> str:
     previous_interactions_str = "\n".join(
@@ -158,27 +154,42 @@ def get_last_interaction():
     else:
         return jsonify({"error": "No interactions available"}), 404
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
-
-@app.route('/api/generate_title', methods=['POST'])
+@app.route('/api/generate_title', methods=['POST', 'OPTIONS'])
+@cross_origin(origin='http://localhost:3000', supports_credentials=True)
 def generate_title():
+    if request.method == 'OPTIONS':
+        return '', 204
+    global assistant
     try:
-        messages = request.json['messages']
-        if not messages:
+        app.logger.info(f"Received request: {request.method} {request.url}")
+        app.logger.info(f"Request headers: {request.headers}")
+        app.logger.info(f"Request body: {request.get_data(as_text=True)}")
+        
+        messages = request.json.get('messages', [])
+        if not messages or not isinstance(messages, list):
+            app.logger.warning("No messages received or invalid format")
             return jsonify({'title': 'New Conversation'})
 
-        # Use the first message as the basis for the title
-        first_message = messages[0]['text']
-        
-        # Truncate the message if it's too long
+        # Combine all messages into a single string
+        conversation = " ".join([msg.get('text', '') for msg in messages])
+
+        # Generate a summary using the AI assistant
+        if assistant is None:
+            assistant = initialize_assistant()
+
+        prompt = CONVERSATION_NAMING_PROMPT.format(conversation=conversation)
+
+        title = assistant.think(prompt).strip()
+
+        # Ensure the title is not too long
         max_title_length = 50
-        title = first_message[:max_title_length].strip()
-        
-        # Add ellipsis if the title was truncated
-        if len(first_message) > max_title_length:
-            title += '...'
+        if len(title) > max_title_length:
+            title = title[:max_title_length].strip() + '...'
 
         return jsonify({'title': title})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error generating title: {str(e)}")
+        return jsonify({'error': 'Failed to generate title', 'details': str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000)

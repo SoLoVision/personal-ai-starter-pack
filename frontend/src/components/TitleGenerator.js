@@ -5,19 +5,24 @@ const TitleGenerator = ({ messages, onTitleGenerated }) => {
 
   const generateTitle = async () => {
     try {
+      console.log('Generating title for messages:', messages);
       const response = await fetch('http://localhost:5000/api/generate_title', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': '', // Include this even if it's empty
         },
         body: JSON.stringify({ messages }),
+        credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate title');
+        throw new Error(`Failed to generate title: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('Generated title:', data.title);
       onTitleGenerated(data.title);
       setError(null);
     } catch (error) {
@@ -34,7 +39,7 @@ const TitleGenerator = ({ messages, onTitleGenerated }) => {
   };
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && messages[0].text) {
       generateTitle();
     }
   }, [messages]);
