@@ -8,7 +8,7 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [listening, setListening] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnecting] = useState(false);
   const [user, setUser] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);
@@ -40,6 +40,27 @@ const Chat = () => {
     }
   }, [user]);
 
+  const setupMediaRecorder = useCallback(() => {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        mediaRecorderRef.current = new MediaRecorder(stream);
+      
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          chunksRef.current.push(event.data);
+        };
+
+        mediaRecorderRef.current.onstop = () => {
+          const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
+          sendAudioToServer(audioBlob);
+          chunksRef.current = [];
+        };
+      })
+      .catch(error => {
+        console.error('Error accessing microphone:', error);
+        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to access microphone. Please check your browser settings.", sender: 'system' }]);
+      });
+  }, []);
+
   useEffect(() => {
     const initializeUser = async () => {
       await checkUser();
@@ -66,7 +87,7 @@ const Chat = () => {
         authListener.subscription.unsubscribe();
       }
     };
-  }, [checkUser, fetchConversations]);
+  }, [checkUser, fetchConversations, setupMediaRecorder]);
 
   useEffect(() => {
     if (user) {
@@ -77,27 +98,6 @@ const Chat = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const setupMediaRecorder = () => {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        mediaRecorderRef.current = new MediaRecorder(stream);
-      
-        mediaRecorderRef.current.ondataavailable = (event) => {
-          chunksRef.current.push(event.data);
-        };
-
-        mediaRecorderRef.current.onstop = () => {
-          const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
-          sendAudioToServer(audioBlob);
-          chunksRef.current = [];
-        };
-      })
-      .catch(error => {
-        console.error('Error accessing microphone:', error);
-        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to access microphone. Please check your browser settings.", sender: 'system' }]);
-      });
-  };
 
   const handleVoiceInput = () => {
     if (listening) {
@@ -272,8 +272,8 @@ const Chat = () => {
       if (error) {
         console.error('Error creating new conversation:', error);
         setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to create a new conversation. Please try again.", sender: 'system' }]);
-      } else if (data) {
-        console.log('New conversation created:', data);
+      } else if (data && data.length > 0) {
+        console.log('New conversation created:', data[0]);
         setCurrentConversation(data[0]);
         setMessages(initialMessages);
         await fetchConversations();

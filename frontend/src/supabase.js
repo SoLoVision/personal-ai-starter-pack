@@ -30,9 +30,16 @@ export const getCurrentUser = async () => {
 };
 
 export const saveConversation = async (userId, title, messages) => {
+  console.log('Saving conversation:', { userId, title, messages });
   const { data, error } = await supabase
     .from('conversations')
-    .insert({ user_id: userId, title, messages });
+    .insert({ user_id: userId, title, messages })
+    .select();
+  if (error) {
+    console.error('Error saving conversation:', error);
+  } else {
+    console.log('Conversation saved successfully:', data);
+  }
   return { data, error };
 };
 
