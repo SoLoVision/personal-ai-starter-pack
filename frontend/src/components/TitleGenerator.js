@@ -1,3 +1,5 @@
+// frontend\src\components\TitleGenerator.js
+
 import React, { useEffect, useState } from 'react';
 
 const TitleGenerator = ({ messages, onTitleGenerated }) => {
