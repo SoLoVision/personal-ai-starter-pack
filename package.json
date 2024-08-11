@@ -1,16 +1,23 @@
 {
   "name": "solo-assist",
   "version": "1.0.0",
-  "description": "> Fast TTS & STT > > A quick start personal AI assistant framework using OpenAI, Groq, AssemblyAI and ElevenLabs.",
+  "description": "SoloAssist Full Stack Application",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "server": "nodemon server.js",
+    "client": "cd frontend && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "cd frontend && npm install && npm run build",
+    "heroku-postbuild": "cd frontend && npm install && npm run build",
+    "start:dev": "cd frontend && HOST=soloserve.ddns.net npm start"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.17.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "concurrently": "^6.2.0",
+    "nodemon": "^2.0.12"
   }
 }

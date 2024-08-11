@@ -34,6 +34,9 @@ Your goal is to extract the key point of the conversation.
 
 Title:"""
 
+# Model to use for simple_llm
+MODEL = "claude-3.5-sonnet"
+
 PERSONAL_AI_ASSISTANT_PROMPT_HEAD += f"""
 <instructions>
     <rule>You work with your human companion '{HUMAN_COMPANION_NAME}' to build, collaborate, and connect.</rule>

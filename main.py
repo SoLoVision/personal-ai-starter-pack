@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Configure CORS
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "https://localhost:3443", "http://localhost:5000"]}}, supports_credentials=True)
 load_dotenv()
 
 def build_prompt(latest_input: str, previous_interactions: List[Interaction]) -> str:
@@ -205,3 +205,33 @@ def generate_title():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
+import sys
+from modules import simple_llm
+from modules.constants import MODEL
+
+def process_input(text):
+    model = simple_llm.load_model(MODEL)
+    response = simple_llm.prompt(model, text)
+    return response
+
+def generate_title(text):
+    model = simple_llm.load_model(MODEL)
+    prompt = f"Generate a concise title (5 words or fewer) for this text:\n{text}\nTitle:"
+    title = simple_llm.prompt(model, prompt)
+    return title.strip()
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: python main.py <command> <text>")
+        sys.exit(1)
+
+    command = sys.argv[1]
+    text = sys.argv[2]
+
+    if command == "process_input":
+        print(process_input(text))
+    elif command == "generate_title":
+        print(generate_title(text))
+    else:
+        print(f"Unknown command: {command}")
+        sys.exit(1)

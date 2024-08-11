@@ -19,6 +19,10 @@ const Chat = () => {
   const chunksRef = useRef([]);
   const messagesEndRef = useRef(null);
 
+  const sendAudioToServer = useCallback((audioBlob) => {
+    sendInputToServer(audioBlob, true);
+  }, []);
+
   const checkUser = useCallback(async () => {
     const currentUser = await getCurrentUser();
     setUser(currentUser);
@@ -41,25 +45,36 @@ const Chat = () => {
   }, [user]);
 
   const setupMediaRecorder = useCallback(() => {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        mediaRecorderRef.current = new MediaRecorder(stream);
-      
-        mediaRecorderRef.current.ondataavailable = (event) => {
-          chunksRef.current.push(event.data);
-        };
+    if (!window.isSecureContext) {
+      console.warn('getUserMedia is not available in insecure contexts. Please use HTTPS or localhost.');
+      mediaRecorderRef.current = null;
+      return;
+    }
 
-        mediaRecorderRef.current.onstop = () => {
-          const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
-          sendAudioToServer(audioBlob);
-          chunksRef.current = [];
-        };
-      })
-      .catch(error => {
-        console.error('Error accessing microphone:', error);
-        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to access microphone. Please check your browser settings.", sender: 'system' }]);
-      });
-  }, []);
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          mediaRecorderRef.current = new MediaRecorder(stream);
+        
+          mediaRecorderRef.current.ondataavailable = (event) => {
+            chunksRef.current.push(event.data);
+          };
+
+          mediaRecorderRef.current.onstop = () => {
+            const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
+            sendAudioToServer(audioBlob);
+            chunksRef.current = [];
+          };
+        })
+        .catch(error => {
+          console.error('Error accessing microphone:', error);
+          mediaRecorderRef.current = null;
+        });
+    } else {
+      console.error('getUserMedia is not supported in this browser');
+      mediaRecorderRef.current = null;
+    }
+  }, [sendAudioToServer]);
 
   useEffect(() => {
     const initializeUser = async () => {
@@ -100,6 +115,18 @@ const Chat = () => {
   }, [messages]);
 
   const handleVoiceInput = () => {
+    if (!window.isSecureContext) {
+      console.error('Voice input is not available in insecure contexts');
+      alert("Voice input is not available. Please use HTTPS or localhost for voice input functionality.");
+      return;
+    }
+
+    if (!mediaRecorderRef.current) {
+      console.error('MediaRecorder is not initialized');
+      alert("Voice input is not available. Please check your browser settings and permissions.");
+      return;
+    }
+
     if (listening) {
       console.log('Stopping recording...');
       mediaRecorderRef.current.stop();
@@ -179,87 +206,7 @@ const Chat = () => {
     }
   };
 
-  const sendInputToServer = (input, isAudio = false) => {
-    const formData = new FormData();
-    if (isAudio) {
-      formData.append('audio', input, 'audio.wav');
-    } else {
-      formData.append('text', input);
-    }
-    formData.append('audio_enabled', true);
-    formData.append('is_new_conversation', !currentConversation);
-
-    fetch('http://localhost:5000/api/process_input', {
-      method: 'POST',
-      body: formData,
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.blob();
-      })
-      .then(blob => {
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audio.play();
-        
-        return fetch('http://localhost:5000/api/get_last_interaction');
-      })
-      .then(response => {
-        const conversationName = response.headers.get('X-Conversation-Name');
-        return response.json().then(data => ({ ...data, conversationName }));
-      })
-      .then(data => {
-        const newMessages = [
-          { text: data.transcription, sender: 'user' },
-          { text: data.response, sender: 'ai' }
-        ];
-        setMessages(prevMessages => [...prevMessages, ...newMessages]);
-        if (!currentConversation) {
-          console.log('Creating new conversation');
-          handleCreateNewConversation(newMessages);
-        } else {
-          console.log('Updating existing conversation:', currentConversation.id);
-          saveConversation(user.id, currentConversation.title, [...messages, ...newMessages]);
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to process input. Please try again.", sender: 'system' }]);
-      });
-  };
-
-  const handleSend = () => {
-    if (input.trim()) {
-      setMessages(prevMessages => [...prevMessages, { text: input, sender: 'user' }]);
-      sendInputToServer(input);
-      setInput('');
-    }
-  };
-
-  const sendAudioToServer = (audioBlob) => {
-    sendInputToServer(audioBlob, true);
-  };
-
-
-
-  const handleNewConversation = async () => {
-    setCurrentConversation(null);
-    setMessages([]);
-  };
-
-  const handleSelectConversation = async (conversation) => {
-    setCurrentConversation(conversation);
-    const { data, error } = await getConversationById(conversation.id);
-    if (error) {
-      console.error('Error fetching conversation:', error);
-    } else {
-      setMessages(data.messages);
-    }
-  };
-
-  const handleCreateNewConversation = async (initialMessages) => {
+  const handleCreateNewConversation = useCallback(async (initialMessages) => {
     console.log('Attempting to create new conversation. User:', user);
     if (!user) {
       console.error('User is not logged in');
@@ -296,7 +243,7 @@ const Chat = () => {
       const finalTitle = title.startsWith("Please provide") ? "New Conversation" : title;
 
       console.log('Saving conversation for user ID:', user.id);
-      const { data, error } = await saveConversation(user.id, title, initialMessages);
+      const { data, error } = await saveConversation(user.id, finalTitle, initialMessages);
       if (error) {
         console.error('Error creating new conversation:', error);
         setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to create a new conversation. Please try again.", sender: 'system' }]);
@@ -311,10 +258,97 @@ const Chat = () => {
       }
     } catch (error) {
       console.error('Unexpected error creating conversation:', error);
+      setMessages(prevMessages => [...prevMessages, { text: `Error: ${error.message}`, sender: 'system' }]);
       setMessages(prevMessages => [...prevMessages, { text: "Error: An unexpected error occurred. Please try again.", sender: 'system' }]);
+    }
+  }, [user, fetchConversations, setMessages, setCurrentConversation]);
+
+  const sendInputToServer = useCallback((input, isAudio = false) => {
+    const formData = new FormData();
+    if (isAudio) {
+      formData.append('audio', input, 'audio.wav');
+    } else {
+      formData.append('text', input);
+    }
+    formData.append('audio_enabled', true);
+    formData.append('is_new_conversation', !currentConversation);
+
+    fetch('http://localhost:5000/api/process_input', {
+      method: 'POST',
+      body: formData,
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return response.json();
+        } else {
+          return response.blob();
+        }
+      })
+      .then(data => {
+        if (data instanceof Blob) {
+          if (data.type.startsWith('audio/')) {
+            const audioUrl = URL.createObjectURL(data);
+            const audio = new Audio(audioUrl);
+            audio.onerror = (e) => {
+              console.error('Audio playback error:', e);
+              setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to play audio response. Please check your audio settings.", sender: 'system' }]);
+            };
+            audio.play().catch(e => {
+              console.error('Audio play error:', e);
+              setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to play audio response. Please check your audio settings.", sender: 'system' }]);
+            });
+          } else {
+            console.error('Received non-audio blob:', data.type);
+            setMessages(prevMessages => [...prevMessages, { text: "Error: Received unexpected response from server.", sender: 'system' }]);
+          }
+        } else if (typeof data === 'object') {
+          // Handle JSON response
+          const newMessages = [
+            { text: data.transcription || input, sender: 'user' },
+            { text: data.response, sender: 'ai' }
+          ];
+          setMessages(prevMessages => [...prevMessages, ...newMessages]);
+          if (!currentConversation) {
+            console.log('Creating new conversation');
+            handleCreateNewConversation(newMessages);
+          } else {
+            console.log('Updating existing conversation:', currentConversation.id);
+            saveConversation(user.id, currentConversation.title, [...messages, ...newMessages]);
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        setMessages(prevMessages => [...prevMessages, { text: `Error: ${error.message || 'Unable to process input. Please try again.'}`, sender: 'system' }]);
+      });
+  }, [currentConversation, user, messages, handleCreateNewConversation]);
+
+  const handleSend = () => {
+    if (input.trim()) {
+      setMessages(prevMessages => [...prevMessages, { text: input, sender: 'user' }]);
+      sendInputToServer(input);
+      setInput('');
     }
   };
 
+  const handleNewConversation = async () => {
+    setCurrentConversation(null);
+    setMessages([]);
+  };
+
+  const handleSelectConversation = async (conversation) => {
+    setCurrentConversation(conversation);
+    const { data, error } = await getConversationById(conversation.id);
+    if (error) {
+      console.error('Error fetching conversation:', error);
+    } else {
+      setMessages(data.messages);
+    }
+  };
 
   return (
     <div className="chat-container">
@@ -376,7 +410,11 @@ const Chat = () => {
           <IconButton onClick={handleSend}>
             <Send />
           </IconButton>
-          <IconButton onClick={handleVoiceInput} disabled={isConnecting}>
+          <IconButton 
+            onClick={handleVoiceInput} 
+            disabled={isConnecting || !mediaRecorderRef.current}
+            title={mediaRecorderRef.current ? "Voice input" : "Voice input not available"}
+          >
             {listening ? <MicOff /> : <Mic />}
           </IconButton>
         </div>
