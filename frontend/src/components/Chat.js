@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { IconButton, TextField, Paper, List, ListItem, ListItemText, ListItemAvatar, Avatar } from '@mui/material';
-import { Send, Mic, MicOff } from '@mui/icons-material';
+import { IconButton } from '@mui/material';
+import { Mic, MicOff } from '@mui/icons-material';
+import { MessageList, Input, Button } from 'react-chat-elements';
+import 'react-chat-elements/dist/main.css';
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
@@ -30,21 +32,20 @@ const Chat = () => {
         const audio = new Audio(audioUrl);
         audio.play();
         
-        // Fetch the transcription and response separately
         return fetch('http://localhost:5000/api/get_last_interaction');
       })
       .then(response => response.json())
       .then(data => {
         console.log('Data received:', data);
-        setMessages(prevMessages => [
-          ...prevMessages, 
-          { text: data.transcription, sender: 'user' },
-          { text: data.response, sender: 'ai' }
-        ]);
+        const newMessages = [
+          { position: 'right', type: 'text', text: data.transcription, date: new Date() },
+          { position: 'left', type: 'text', text: data.response, date: new Date() }
+        ];
+        setMessages(prevMessages => [...prevMessages, ...newMessages]);
       })
       .catch(error => {
         console.error('Error:', error);
-        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to process audio. Please try again.", sender: 'system' }]);
+        setMessages(prevMessages => [...prevMessages, { position: 'left', type: 'text', text: "Error: Unable to process audio. Please try again.", date: new Date() }]);
       })
       .finally(() => {
         setIsConnecting(false);
@@ -79,9 +80,10 @@ const Chat = () => {
 
   const handleSend = () => {
     if (input.trim()) {
-      setMessages(prevMessages => [...prevMessages, { text: input, sender: 'user' }]);
-      // Here you would typically send the text input to your backend for processing
+      const newMessage = { position: 'right', type: 'text', text: input, date: new Date() };
+      setMessages(prevMessages => [...prevMessages, newMessage]);
       setInput('');
+      // Here you would typically send the text input to your backend for processing
     }
   };
 
@@ -98,34 +100,36 @@ const Chat = () => {
   };
 
   return (
-    <Paper style={{ padding: '1em', height: '80vh', display: 'flex', flexDirection: 'column' }}>
-      <List style={{ flexGrow: 1, overflow: 'auto' }}>
-        {messages.map((message, index) => (
-          <ListItem key={index}>
-            <ListItemAvatar>
-              <Avatar>{message.sender === 'user' ? 'U' : 'AI'}</Avatar>
-            </ListItemAvatar>
-            <ListItemText primary={message.text} />
-          </ListItem>
-        ))}
-      </List>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <TextField
+    <div style={{ height: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <MessageList
+          className='message-list'
+          lockable={true}
+          toBottomHeight={'100%'}
+          dataSource={messages}
+        />
+      </div>
+      <div style={{ display: 'flex', padding: '10px' }}>
+        <Input
+          placeholder="Type here..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          fullWidth
+          rightButtons={
+            <Button
+              color='white'
+              backgroundColor='black'
+              text='Send'
+              onClick={handleSend}
+            />
+          }
         />
-        <IconButton onClick={handleSend}>
-          <Send />
-        </IconButton>
-        <IconButton onClick={handleVoiceInput} disabled={isConnecting}>
+        <IconButton onClick={handleVoiceInput} disabled={isConnecting} style={{ marginLeft: '10px' }}>
           {listening ? <MicOff /> : <Mic />}
         </IconButton>
-        {listening && <div style={{ color: 'red', marginLeft: '10px' }}>Recording...</div>}
-        {isConnecting && <div style={{ color: 'blue', marginLeft: '10px' }}>Connecting...</div>}
       </div>
-    </Paper>
+      {listening && <span style={{ color: 'red', marginLeft: '10px' }}>Recording...</span>}
+      {isConnecting && <span style={{ color: 'blue', marginLeft: '10px' }}>Connecting...</span>}
+    </div>
   );
 };
 
