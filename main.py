@@ -173,21 +173,31 @@ def generate_title():
             return jsonify({'title': 'New Conversation'})
 
         # Combine all messages into a single string
-        conversation = " ".join([msg.get('text', '') for msg in messages])
+        conversation = " ".join([f"{msg.get('sender', 'unknown')}: {msg.get('text', '')}" for msg in messages])
+
+        if not conversation.strip():
+            app.logger.warning("Empty conversation")
+            return jsonify({'title': 'New Conversation'})
 
         # Generate a summary using the AI assistant
         if assistant is None:
             assistant = initialize_assistant()
 
-        prompt = CONVERSATION_NAMING_PROMPT.format(conversation=conversation)
+        prompt = (
+            "Summarize the conversation in 5 words or fewer:\n"
+            "Be as concise as possible without losing the context of the conversation.\n"
+            "Your goal is to extract the key point of the conversation.\n\n"
+            + conversation
+        )
 
         title = assistant.think(prompt).strip()
 
-        # Ensure the title is not too long
-        max_title_length = 50
-        if len(title) > max_title_length:
-            title = title[:max_title_length].strip() + '...'
+        # Ensure the title is not too long (5 words or fewer)
+        title_words = title.split()
+        if len(title_words) > 5:
+            title = ' '.join(title_words[:5])
 
+        app.logger.info(f"Generated title: {title}")
         return jsonify({'title': title})
     except Exception as e:
         app.logger.error(f"Error generating title: {str(e)}")

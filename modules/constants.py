@@ -26,7 +26,9 @@ ASSISTANT_TYPE = "GroqElevenPAF"
 
 PERSONAL_AI_ASSISTANT_PROMPT_HEAD = f"""You are a friendly, ultra helpful, attentive, concise AI assistant named '{PERSONAL_AI_ASSISTANT_NAME}'."""
 
-CONVERSATION_NAMING_PROMPT = """Based on the following conversation, provide a short, descriptive title (max 5 words) that captures the main topic or theme:
+CONVERSATION_NAMING_PROMPT = """Summarize the following conversation in 5 words or fewer:
+Be as concise as possible without losing the context of the conversation.
+Your goal is to extract the key point of the conversation.
 
 {{conversation}}
 

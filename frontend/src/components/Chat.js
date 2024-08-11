@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { IconButton, Button, TextField, List, ListItem, ListItemText } from '@mui/material';
 import { Send, Mic, MicOff, Add } from '@mui/icons-material';
 import { supabase, signIn, signUp, signOut, getCurrentUser, saveConversation, getConversations, getConversationById } from '../supabase';
-import TitleGenerator from './TitleGenerator';
 import './Chat.css';
 
 const Chat = () => {
@@ -268,9 +267,36 @@ const Chat = () => {
       return;
     }
     try {
+      console.log('Generating title for new conversation');
+      const titleResponse = await fetch('http://localhost:5000/api/generate_title', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': '',
+        },
+        body: JSON.stringify({
+          prompt: "Summarize the conversation in 5 words or fewer:\nBe as concise as possible without losing the context of the conversation.\nYour goal is to extract the key point of the conversation.",
+          messages: initialMessages.map(msg => ({
+            sender: msg.sender,
+            text: msg.text
+          }))
+        }),
+        credentials: 'include',
+      });
+
+      if (!titleResponse.ok) {
+        throw new Error(`Failed to generate title: ${titleResponse.status} ${titleResponse.statusText}`);
+      }
+
+      const { title } = await titleResponse.json();
+      console.log('Generated title:', title);
+
+      // If the title is not appropriate, use a default title
+      const finalTitle = title.startsWith("Please provide") ? "New Conversation" : title;
+
       console.log('Saving conversation for user ID:', user.id);
-      const tempTitle = 'New Conversation';
-      const { data, error } = await saveConversation(user.id, tempTitle, initialMessages);
+      const { data, error } = await saveConversation(user.id, title, initialMessages);
       if (error) {
         console.error('Error creating new conversation:', error);
         setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to create a new conversation. Please try again.", sender: 'system' }]);
@@ -289,25 +315,6 @@ const Chat = () => {
     }
   };
 
-  const handleTitleGenerated = async (title) => {
-    if (currentConversation) {
-      try {
-        const { data, error } = await supabase
-          .from('conversations')
-          .update({ title })
-          .eq('id', currentConversation.id);
-        
-        if (error) {
-          console.error('Error updating conversation title:', error);
-        } else {
-          setCurrentConversation({ ...currentConversation, title });
-          await fetchConversations();
-        }
-      } catch (error) {
-        console.error('Unexpected error updating conversation title:', error);
-      }
-    }
-  };
 
   return (
     <div className="chat-container">
@@ -350,7 +357,6 @@ const Chat = () => {
         )}
       </div>
       <div className="chat-main">
-        <TitleGenerator messages={messages} onTitleGenerated={handleTitleGenerated} />
         <div className="messages-container">
           {messages.map((message, index) => (
             <div key={index} className={`message ${message.sender}`}>

@@ -15,7 +15,10 @@ const TitleGenerator = ({ messages, onTitleGenerated }) => {
           'Accept': 'application/json',
           'Authorization': '', // Include this even if it's empty
         },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({
+          prompt: "Summarize the conversation in 5 words or fewer:\nBe as concise as possible without losing the context of the conversation.\nYour goal is to extract the key point of the conversation.",
+          messages
+        }),
         credentials: 'include',
       });
 
