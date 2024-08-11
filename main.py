@@ -20,6 +20,11 @@ from modules.constants import (
 )
 import logging
 
+# Global variables
+recording = None
+assistant = None
+previous_interactions = []
+
 from modules.typings import Interaction
 
 # Configure logging
@@ -39,6 +44,8 @@ def record_audio(duration=DURATION, fs=FS, channels=CHANNELS):
     Hit enter to stop the recording at any time.
     """
 
+    global recording, stop_event
+
     logger.info("🔴 Recording...")
     recording = sd.rec(
         int(duration * fs), samplerate=fs, channels=channels, dtype="int16"
@@ -50,8 +57,6 @@ def record_audio(duration=DURATION, fs=FS, channels=CHANNELS):
             logger.warning(
                 "⚠️ Record limit hit - your assistant won't hear what you're saying now. Increase the duration."
             )
-
-    stop_event = threading.Event()
     warning_thread = threading.Thread(target=duration_warning)
     warning_thread.daemon = (
         True  # Set the thread as daemon so it doesn't block program exit
@@ -107,74 +112,56 @@ def build_prompt(latest_input: str, previous_interactions: List[Interaction]) ->
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe():
     """
-    In a loop, we:
-    1. Press enter to start recording
-    2. Record audio from the microphone for N seconds
-    3. When we press enter again, we create an audio file from the recording
-    4. Transcribe the audio file
-    5. Our AI assistant thinks (prompt) of a response to the transcription
-    6. Our AI assistant speaks the response
-    7. Delete the audio file
-    8. Update previous interactions
+    Transcribe the uploaded audio file.
     """
+    global previous_interactions, assistant
+    logger.info("Received request to /api/transcribe")
+    
+    if 'audio' not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
 
-    previous_interactions = []
+    audio_file = request.files['audio']
+    filename = f"audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+    audio_file.save(filename)
+    logger.info(f"Audio file {filename} saved.")
 
-    if ASSISTANT_TYPE == "OpenAIPAF":
+    try:
+        if assistant is None:
+            if ASSISTANT_TYPE == "AssElevenPAF":
+                assistant = AssElevenPAF()
+            elif ASSISTANT_TYPE == "GroqElevenPAF":
+                assistant = GroqElevenPAF()
+            elif ASSISTANT_TYPE == "OpenAIPAF":
+                assistant = OpenAIPAF()
+            else:
+                raise ValueError(f"Unknown assistant type: {ASSISTANT_TYPE}")
+            assistant.setup()
 
-        assistant = OpenAIPAF()
-        logger.info("🚀 Initialized OpenAI Personal AI Assistant...")
+        transcription = assistant.transcribe(filename)
+        logger.info(f"Transcription complete: {transcription}")
 
-    elif ASSISTANT_TYPE == "AssElevenPAF":
+        prompt = build_prompt(transcription, previous_interactions)
+        logger.info("Generating response from AI assistant...")
+        response = assistant.think(prompt)
+        logger.info(f"AI assistant response: {response}")
 
-        assistant = AssElevenPAF()
-        logger.info("🚀 Initialized AssemblyAI-ElevenLabs Personal AI Assistant...")
+        # Update previous interactions
+        previous_interactions.append(Interaction(role="human", content=transcription))
+        previous_interactions.append(Interaction(role="assistant", content=response))
+        logger.info("Updated previous interactions.")
 
-    elif ASSISTANT_TYPE == "GroqElevenPAF":
+        # Keep only the last CONVO_TRAIL_CUTOFF interactions
+        if len(previous_interactions) > CONVO_TRAIL_CUTOFF:
+            previous_interactions = previous_interactions[-CONVO_TRAIL_CUTOFF:]
 
-        assistant = GroqElevenPAF()
-        logger.info("🚀 Initialized Groq-ElevenLabs Personal AI Assistant...")
-
-    else:
-        raise ValueError(f"Invalid assistant type: {ASSISTANT_TYPE}")
-
-    assistant.setup()
-
-    while True:
-        try:
-            input("🎧 Press Enter to start recording...")
-            recording = record_audio(duration=DURATION, fs=FS, channels=CHANNELS)
-
-            filename = create_audio_file(recording)
-            transcription = assistant.transcribe(filename)
-
-            logger.info(f"📝 Your Input Transcription: '{transcription}'")
-
-            prompt = build_prompt(transcription, previous_interactions)
-            response = assistant.think(prompt)
-
-            logger.info(f"🤖 Your Personal AI Assistant Response: '{response}'")
-
-            assistant.speak(response)
-
+        return jsonify({"transcription": transcription, "response": response}), 200
+    except Exception as e:
+        logger.error(f"An error occurred during transcription: {e}")
+        return jsonify({"error": "An error occurred during transcription"}), 500
+    finally:
+        if os.path.exists(filename):
             os.remove(filename)
-
-            # Update previous interactions
-            previous_interactions.append(
-                Interaction(role="human", content=transcription)
-            )
-            previous_interactions.append(
-                Interaction(role="assistant", content=response)
-            )
-
-            # Keep only the last CONVO_TRAIL_CUTOFF interactions
-            if len(previous_interactions) > CONVO_TRAIL_CUTOFF:
-                previous_interactions = previous_interactions[-CONVO_TRAIL_CUTOFF:]
-
-            logger.info("\nReady for next interaction. Press Ctrl+C to exit.")
-        except KeyboardInterrupt:
-            logger.info("\nExiting the program.")
-            break
+            logger.info("Audio file removed.")
 
 
 if __name__ == "__main__":

@@ -6,65 +6,71 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [listening, setListening] = useState(false);
-  const recognitionRef = useRef(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
 
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window) {
-      const recognition = new window.webkitSpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          chunksRef.current.push(event.data);
+        };
 
-      recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-          .map(result => result[0])
-          .map(result => result.transcript)
-          .join('');
-        setInput(transcript);
-      };
-
-      recognition.onend = () => {
-        setListening(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
+        mediaRecorderRef.current.onstop = () => {
+          const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
+          sendAudioToServer(audioBlob);
+          chunksRef.current = [];
+        };
+      })
+      .catch(error => {
+        console.error('Error accessing microphone:', error);
+      });
   }, []);
+
+  const sendAudioToServer = (audioBlob) => {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'audio.wav');
+
+    fetch('http://localhost:5000/api/transcribe', {
+      method: 'POST',
+      body: formData,
+    })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Data received:', data);
+        setMessages(prevMessages => [
+          ...prevMessages, 
+          { text: data.transcription, sender: 'user' },
+          { text: data.response, sender: 'ai' }
+        ]);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to process audio. Please try again.", sender: 'system' }]);
+      });
+  };
 
   const handleSend = () => {
     if (input.trim()) {
-      console.log('User input:', input);
-      setMessages([...messages, { text: input, sender: 'user' }]);
+      setMessages(prevMessages => [...prevMessages, { text: input, sender: 'user' }]);
+      // Here you would typically send the text input to your backend for processing
       setInput('');
-      fetch('http://localhost:5000/api/transcribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: input }),
-      })
-        .then(response => {
-          console.log('Response from server:', response);
-          return response.json();
-        })
-        .then(data => {
-          console.log('Data received:', data);
-          setMessages([...messages, { text: input, sender: 'user' }, { text: data.transcription, sender: 'ai' }]);
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          console.error('Error:', error);
-        });
     }
   };
 
   const handleVoiceInput = () => {
     if (listening) {
-      recognitionRef.current.stop();
+      console.log('Stopping recording...');
+      mediaRecorderRef.current.stop();
+      setListening(false);
     } else {
-      recognitionRef.current.start();
+      console.log('Starting recording...');
+      mediaRecorderRef.current.start();
+      setListening(true);
     }
-    setListening(!listening);
   };
 
   return (
@@ -89,9 +95,11 @@ const Chat = () => {
         <IconButton onClick={handleSend}>
           <Send />
         </IconButton>
-        <IconButton onClick={handleVoiceInput}>
+        <IconButton onClick={handleVoiceInput} disabled={isConnecting}>
           {listening ? <MicOff /> : <Mic />}
         </IconButton>
+        {listening && <div style={{ color: 'red', marginLeft: '10px' }}>Recording...</div>}
+        {isConnecting && <div style={{ color: 'blue', marginLeft: '10px' }}>Connecting...</div>}
       </div>
     </Paper>
   );
