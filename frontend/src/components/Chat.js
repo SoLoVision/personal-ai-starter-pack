@@ -255,7 +255,6 @@ const Chat = () => {
     }
   };
 
-
   const handleNewConversation = async () => {
     setCurrentConversation(null);
     setMessages([]);
