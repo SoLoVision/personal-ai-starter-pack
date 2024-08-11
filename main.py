@@ -54,38 +54,42 @@ def build_prompt(latest_input: str, previous_interactions: List[Interaction]) ->
     return prepared_prompt
 
 
-@app.route('/api/transcribe', methods=['POST'])
-def transcribe():
+@app.route('/api/process_input', methods=['POST'])
+def process_input():
     """
-    Transcribe the uploaded audio file.
+    Process the input, whether it's audio or text.
     """
     global previous_interactions, assistant
-    logger.info("Received request to /api/transcribe")
+    logger.info("Received request to /api/process_input")
     
-    if 'audio' not in request.files:
-        return jsonify({"error": "No audio file provided"}), 400
-
-    audio_file = request.files['audio']
-    filename = f"audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
-    audio_file.save(filename)
-    logger.info(f"Audio file {filename} saved.")
+    if 'audio' in request.files:
+        audio_file = request.files['audio']
+        filename = f"audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+        audio_file.save(filename)
+        logger.info(f"Audio file {filename} saved.")
+        
+        try:
+            if assistant is None:
+                assistant = initialize_assistant()
+            
+            transcription = assistant.transcribe(filename)
+            logger.info(f"Transcription complete: {transcription}")
+            user_input = transcription
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
+                logger.info("Audio file removed.")
+    elif 'text' in request.form:
+        user_input = request.form['text']
+        logger.info(f"Received text input: {user_input}")
+    else:
+        return jsonify({"error": "No input provided"}), 400
 
     try:
         if assistant is None:
-            if ASSISTANT_TYPE == "AssElevenPAF":
-                assistant = AssElevenPAF()
-            elif ASSISTANT_TYPE == "GroqElevenPAF":
-                assistant = GroqElevenPAF()
-            elif ASSISTANT_TYPE == "OpenAIPAF":
-                assistant = OpenAIPAF()
-            else:
-                raise ValueError(f"Unknown assistant type: {ASSISTANT_TYPE}")
-            assistant.setup()
+            assistant = initialize_assistant()
 
-        transcription = assistant.transcribe(filename)
-        logger.info(f"Transcription complete: {transcription}")
-
-        prompt = build_prompt(transcription, previous_interactions)
+        prompt = build_prompt(user_input, previous_interactions)
         logger.info("Generating response from AI assistant...")
         response = assistant.think(prompt)
         logger.info(f"AI assistant response: {response}")
@@ -98,7 +102,7 @@ def transcribe():
         audio_io.seek(0)
 
         # Update previous interactions
-        previous_interactions.append(Interaction(role="human", content=transcription))
+        previous_interactions.append(Interaction(role="human", content=user_input))
         previous_interactions.append(Interaction(role="assistant", content=response))
         logger.info("Updated previous interactions.")
 
@@ -113,12 +117,20 @@ def transcribe():
             download_name="response.mp3"
         )
     except Exception as e:
-        logger.error(f"An error occurred during transcription: {e}")
-        return jsonify({"error": "An error occurred during transcription"}), 500
-    finally:
-        if os.path.exists(filename):
-            os.remove(filename)
-            logger.info("Audio file removed.")
+        logger.error(f"An error occurred during processing: {e}")
+        return jsonify({"error": "An error occurred during processing"}), 500
+
+def initialize_assistant():
+    if ASSISTANT_TYPE == "AssElevenPAF":
+        assistant = AssElevenPAF()
+    elif ASSISTANT_TYPE == "GroqElevenPAF":
+        assistant = GroqElevenPAF()
+    elif ASSISTANT_TYPE == "OpenAIPAF":
+        assistant = OpenAIPAF()
+    else:
+        raise ValueError(f"Unknown assistant type: {ASSISTANT_TYPE}")
+    assistant.setup()
+    return assistant
 
 
 @app.route('/api/get_last_interaction', methods=['GET'])

@@ -30,11 +30,15 @@ const Chat = () => {
       });
   }, []);
 
-  const sendAudioToServer = (audioBlob) => {
+  const sendInputToServer = (input, isAudio = false) => {
     const formData = new FormData();
-    formData.append('audio', audioBlob, 'audio.wav');
+    if (isAudio) {
+      formData.append('audio', input, 'audio.wav');
+    } else {
+      formData.append('text', input);
+    }
 
-    fetch('http://localhost:5000/api/transcribe', {
+    fetch('http://localhost:5000/api/process_input', {
       method: 'POST',
       body: formData,
     })
@@ -63,16 +67,20 @@ const Chat = () => {
       })
       .catch(error => {
         console.error('Error:', error);
-        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to process audio. Please try again.", sender: 'system' }]);
+        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to process input. Please try again.", sender: 'system' }]);
       });
   };
 
   const handleSend = () => {
     if (input.trim()) {
       setMessages(prevMessages => [...prevMessages, { text: input, sender: 'user' }]);
-      // Here you would typically send the text input to your backend for processing
+      sendInputToServer(input);
       setInput('');
     }
+  };
+
+  const sendAudioToServer = (audioBlob) => {
+    sendInputToServer(audioBlob, true);
   };
 
   const handleVoiceInput = () => {
