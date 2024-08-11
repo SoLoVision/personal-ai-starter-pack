@@ -1,42 +1,46 @@
 {
-    "name": "soloassist-frontend",
-    "version": "1.0.0",
-    "description": "Frontend for SoLoAssist",
-    "main": "src/index.js",
-    "scripts": {
-        "start": "react-scripts start",
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "build": "react-scripts build",
-        "eject": "react-scripts eject"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
+    "name": "frontend",
+    "version": "0.1.0",
+    "private": true,
     "dependencies": {
-        "@chatscope/chat-ui-kit-react": "^2.0.3",
-        "@chatscope/chat-ui-kit-styles": "^1.4.0",
-        "@emotion/react": "^11.11.0",
-        "@emotion/styled": "^11.11.0",
-        "@mui/icons-material": "^5.16.7",
-        "@mui/material": "^5.13.0",
-        "react": "^18.2.0",
-        "react-dom": "^18.2.0",
-        "react-router-dom": "^6.14.0",
-        "web-vitals": "^4.2.3"
+      "@chatscope/chat-ui-kit-react": "^1.10.1",
+      "@emotion/react": "^11.11.1",
+      "@emotion/styled": "^11.11.0",
+      "@mui/icons-material": "^5.14.3",
+      "@mui/material": "^5.14.5",
+      "@supabase/auth-helpers-react": "^0.4.2",
+      "@supabase/supabase-js": "^2.33.1",
+      "@testing-library/jest-dom": "^5.17.0",
+      "@testing-library/react": "^13.4.0",
+      "@testing-library/user-event": "^13.5.0",
+      "react": "^18.2.0",
+      "react-dom": "^18.2.0",
+      "react-router-dom": "^6.15.0",
+      "react-scripts": "5.0.1",
+      "web-vitals": "^2.1.4"
     },
-    "devDependencies": {
-        "react-scripts": "5.0.1"
+    "scripts": {
+      "start": "react-scripts start",
+      "build": "react-scripts build",
+      "test": "react-scripts test",
+      "eject": "react-scripts eject"
+    },
+    "eslintConfig": {
+      "extends": [
+        "react-app",
+        "react-app/jest"
+      ]
     },
     "browserslist": {
-        "production": [
-            ">0.2%",
-            "not dead",
-            "not op_mini all"
-        ],
-        "development": [
-            "last 1 chrome version",
-            "last 1 firefox version",
-            "last 1 safari version"
-        ]
+      "production": [
+        ">0.2%",
+        "not dead",
+        "not op_mini all"
+      ],
+      "development": [
+        "last 1 chrome version",
+        "last 1 firefox version",
+        "last 1 safari version"
+      ]
     }
-}
+  }

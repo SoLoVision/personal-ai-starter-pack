@@ -1,24 +1,18 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { Container, AppBar, Toolbar, Typography } from '@mui/material';
+import { SessionContextProvider } from '@supabase/auth-helpers-react';
+import { supabase } from './supabase';
 import Chat from './components/Chat';
 
 function App() {
   return (
-    <div className="App">
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6">
-            SoLoAssist
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Container style={{ paddingTop: '20px', paddingBottom: '20px' }}>
+    <SessionContextProvider supabaseClient={supabase}>
+      <div className="App">
         <Routes>
           <Route path="/" element={<Chat />} />
         </Routes>
-      </Container>
-    </div>
+      </div>
+    </SessionContextProvider>
   );
 }
 

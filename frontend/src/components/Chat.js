@@ -1,19 +1,64 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { IconButton, Switch, FormControlLabel } from '@mui/material';
-import { Send, Mic, MicOff } from '@mui/icons-material';
-import { MainContainer, ChatContainer, MessageList, Message, MessageInput, TypingIndicator } from '@chatscope/chat-ui-kit-react';
-import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
+import { IconButton, Button, TextField, List, ListItem, ListItemText } from '@mui/material';
+import { Send, Mic, MicOff, Add } from '@mui/icons-material';
+import { supabase, signIn, signUp, signOut, getCurrentUser, saveConversation, getConversations, getConversationById } from '../supabase';
+import './Chat.css';
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [listening, setListening] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [user, setUser] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [currentConversation, setCurrentConversation] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUpDisabled, setIsSignUpDisabled] = useState(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    const initializeUser = async () => {
+      await checkUser();
+      setupMediaRecorder();
+    };
+    initializeUser();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      console.log('User detected:', user);
+      fetchConversations();
+    } else {
+      console.log('No user detected');
+    }
+  }, [user]);
+
+  // Add this new effect to persist user state
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const checkUser = async () => {
+    console.log('Checking current user...');
+    const currentUser = await getCurrentUser();
+    console.log('Current user:', currentUser);
+    setUser(currentUser);
+  };
+
+  const setupMediaRecorder = () => {
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
         mediaRecorderRef.current = new MediaRecorder(stream);
@@ -31,7 +76,92 @@ const Chat = () => {
       .catch(error => {
         console.error('Error accessing microphone:', error);
       });
-  }, []);
+  };
+
+  const fetchConversations = async () => {
+    if (!user) {
+      console.error('Cannot fetch conversations: User is not logged in');
+      return;
+    }
+    try {
+      const { data, error } = await getConversations(user.id);
+      if (error) {
+        console.error('Error fetching conversations:', error);
+      } else if (data) {
+        setConversations(data);
+      } else {
+        console.error('No data returned when fetching conversations');
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching conversations:', error);
+    }
+  };
+
+  const handleSignIn = async () => {
+    console.log('Attempting to sign in with email:', email);
+    try {
+      const { user, error } = await signIn(email, password);
+      if (error) {
+        console.error('Error signing in:', error);
+        alert(`Sign in failed: ${error.message}`);
+      } else if (user) {
+        console.log('Sign in successful. User:', user);
+        setUser(user);
+        fetchConversations();
+      } else {
+        console.error('Sign in failed: No user returned and no error');
+        alert('Sign in failed: Please try again');
+      }
+    } catch (error) {
+      console.error('Unexpected error during sign in:', error);
+      alert('An unexpected error occurred. Please try again.');
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (isSignUpDisabled) {
+      alert('Please wait before attempting to sign up again.');
+      return;
+    }
+
+    setIsSignUpDisabled(true);
+    setTimeout(() => setIsSignUpDisabled(false), 60000); // 1 minute cooldown
+
+    try {
+      const { user, error } = await signUp(email, password);
+      if (error) {
+        if (error.status === 429) {
+          console.error('Rate limit exceeded:', error);
+          alert('Too many sign-up attempts. Please try again in a minute.');
+        } else {
+          console.error('Error signing up:', error);
+          alert(`Error signing up: ${error.message || 'Unknown error'}`);
+        }
+      } else {
+        setUser(user);
+        // Clear the email and password fields after successful sign-up
+        setEmail('');
+        setPassword('');
+        // Fetch conversations for the new user
+        fetchConversations();
+      }
+    } catch (error) {
+      console.error('Unexpected error during sign-up:', error);
+      alert('An unexpected error occurred. Please try again later.');
+    }
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      console.error('Error signing out:', error);
+    } else {
+      setUser(null);
+      setConversations([]);
+      setCurrentConversation(null);
+      setMessages([]);
+    }
+  };
 
   const sendInputToServer = (input, isAudio = false) => {
     const formData = new FormData();
@@ -40,7 +170,8 @@ const Chat = () => {
     } else {
       formData.append('text', input);
     }
-    formData.append('audio_enabled', audioEnabled);
+    formData.append('audio_enabled', true);
+    formData.append('is_new_conversation', !currentConversation);
 
     fetch('http://localhost:5000/api/process_input', {
       method: 'POST',
@@ -50,36 +181,42 @@ const Chat = () => {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-        return audioEnabled ? response.blob() : response.json();
+        return response.blob();
       })
-      .then(data => {
-        if (audioEnabled) {
-          const audioUrl = URL.createObjectURL(data);
-          const audio = new Audio(audioUrl);
-          audio.play();
-        }
+      .then(blob => {
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audio.play();
         
-        // Fetch the transcription and response separately
         return fetch('http://localhost:5000/api/get_last_interaction');
       })
-      .then(response => response.json())
+      .then(response => {
+        const conversationName = response.headers.get('X-Conversation-Name');
+        return response.json().then(data => ({ ...data, conversationName }));
+      })
       .then(data => {
-        console.log('Data received:', data);
-        setMessages(prevMessages => [
-          ...prevMessages, 
-          { message: data.transcription, sender: 'user', direction: 'outgoing' },
-          { message: data.response, sender: 'ai', direction: 'incoming' }
-        ]);
+        const newMessages = [
+          { text: data.transcription, sender: 'user' },
+          { text: data.response, sender: 'ai' }
+        ];
+        setMessages(prevMessages => [...prevMessages, ...newMessages]);
+        if (!currentConversation) {
+          console.log('Creating new conversation with name:', data.conversationName);
+          handleCreateNewConversation(data.conversationName || `Conversation ${conversations.length + 1}`, newMessages);
+        } else {
+          console.log('Updating existing conversation:', currentConversation.id);
+          saveConversation(user.id, currentConversation.title, [...messages, ...newMessages]);
+        }
       })
       .catch(error => {
         console.error('Error:', error);
-        setMessages(prevMessages => [...prevMessages, { message: "Error: Unable to process input. Please try again.", sender: 'system', direction: 'incoming' }]);
+        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to process input. Please try again.", sender: 'system' }]);
       });
   };
 
   const handleSend = () => {
     if (input.trim()) {
-      setMessages(prevMessages => [...prevMessages, { message: input, sender: 'user', direction: 'outgoing' }]);
+      setMessages(prevMessages => [...prevMessages, { text: input, sender: 'user' }]);
       sendInputToServer(input);
       setInput('');
     }
@@ -101,38 +238,114 @@ const Chat = () => {
     }
   };
 
+  const handleNewConversation = async () => {
+    setCurrentConversation(null);
+    setMessages([]);
+  };
+
+  const handleSelectConversation = async (conversation) => {
+    setCurrentConversation(conversation);
+    const { data, error } = await getConversationById(conversation.id);
+    if (error) {
+      console.error('Error fetching conversation:', error);
+    } else {
+      setMessages(data.messages);
+    }
+  };
+
+  const handleCreateNewConversation = async (title, initialMessages) => {
+    console.log('Attempting to create new conversation. User:', user);
+    if (!user) {
+      console.error('User is not logged in');
+      setMessages(prevMessages => [...prevMessages, { text: "Error: You need to be logged in to create a conversation.", sender: 'system' }]);
+      return;
+    }
+    try {
+      console.log('Saving conversation for user ID:', user.id);
+      const { data, error } = await saveConversation(user.id, title, initialMessages);
+      if (error) {
+        console.error('Error creating new conversation:', error);
+        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to create a new conversation. Please try again.", sender: 'system' }]);
+      } else if (data) {
+        console.log('New conversation created:', data);
+        setCurrentConversation(data);
+        await fetchConversations();
+      } else {
+        console.error('No data returned when creating conversation');
+        setMessages(prevMessages => [...prevMessages, { text: "Error: Unable to create a new conversation. Please try again.", sender: 'system' }]);
+      }
+    } catch (error) {
+      console.error('Unexpected error creating conversation:', error);
+      setMessages(prevMessages => [...prevMessages, { text: "Error: An unexpected error occurred. Please try again.", sender: 'system' }]);
+    }
+  };
+
   return (
-    <div style={{ position: 'relative', height: '80vh' }}>
-      <MainContainer>
-        <ChatContainer>
-          <MessageList>
-            {messages.map((message, index) => (
-              <Message key={index} model={message} />
-            ))}
-          </MessageList>
-          <MessageInput
-            placeholder="Type message here"
+    <div className="chat-container">
+      <div className="sidebar">
+        {user ? (
+          <>
+            <Button onClick={handleSignOut}>Sign Out</Button>
+            <Button onClick={handleNewConversation}><Add /> New Conversation</Button>
+            <List>
+              {conversations.map((conv) => (
+                <ListItem 
+                  key={conv.id} 
+                  button 
+                  onClick={() => handleSelectConversation(conv)}
+                  selected={currentConversation && currentConversation.id === conv.id}
+                >
+                  <ListItemText primary={conv.title} />
+                </ListItem>
+              ))}
+            </List>
+          </>
+        ) : (
+          <div className="auth-form">
+            <TextField
+              label="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <TextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <Button onClick={handleSignIn}>Sign In</Button>
+            <Button onClick={handleSignUp} disabled={isSignUpDisabled}>
+              {isSignUpDisabled ? 'Please wait...' : 'Sign Up'}
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="chat-main">
+        <div className="messages-container">
+          {messages.map((message, index) => (
+            <div key={index} className={`message ${message.sender}`}>
+              <p>{message.text}</p>
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+        <div className="input-container">
+          <input
+            type="text"
             value={input}
-            onChange={(val) => setInput(val)}
-            onSend={handleSend}
-            attachButton={false}
-            sendButton={false}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Type a message..."
           />
-        </ChatContainer>
-      </MainContainer>
-      <div style={{ position: 'absolute', bottom: '10px', right: '10px', display: 'flex', alignItems: 'center' }}>
-        <FormControlLabel
-          control={<Switch checked={audioEnabled} onChange={(e) => setAudioEnabled(e.target.checked)} />}
-          label="Audio Replies"
-        />
-        <IconButton onClick={handleSend}>
-          <Send />
-        </IconButton>
-        <IconButton onClick={handleVoiceInput} disabled={isConnecting}>
-          {listening ? <MicOff /> : <Mic />}
-        </IconButton>
-        {listening && <div style={{ color: 'red', marginLeft: '10px' }}>Recording...</div>}
-        {isConnecting && <div style={{ color: 'blue', marginLeft: '10px' }}>Connecting...</div>}
+          <IconButton onClick={handleSend}>
+            <Send />
+          </IconButton>
+          <IconButton onClick={handleVoiceInput} disabled={isConnecting}>
+            {listening ? <MicOff /> : <Mic />}
+          </IconButton>
+        </div>
+        {listening && <div className="recording-indicator">Recording...</div>}
+        {isConnecting && <div className="connecting-indicator">Connecting...</div>}
       </div>
     </div>
   );

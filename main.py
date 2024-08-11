@@ -15,6 +15,7 @@ from modules.constants import (
     DURATION,
     CONVO_TRAIL_CUTOFF,
     ASSISTANT_TYPE,
+    CONVERSATION_NAMING_PROMPT,
 )
 import logging
 
@@ -63,6 +64,7 @@ def process_input():
     logger.info("Received request to /api/process_input")
     
     audio_enabled = request.form.get('audio_enabled', 'true').lower() == 'true'
+    is_new_conversation = request.form.get('is_new_conversation', 'false').lower() == 'true'
     
     if 'audio' in request.files:
         audio_file = request.files['audio']
@@ -105,6 +107,12 @@ def process_input():
         if len(previous_interactions) > CONVO_TRAIL_CUTOFF:
             previous_interactions = previous_interactions[-CONVO_TRAIL_CUTOFF:]
 
+        # Generate conversation name if it's a new conversation
+        conversation_name = None
+        if is_new_conversation:
+            naming_prompt = CONVERSATION_NAMING_PROMPT.format(conversation=user_input + "\n" + response)
+            conversation_name = assistant.think(naming_prompt).strip()
+
         if audio_enabled:
             # Generate audio from the response
             audio_data = assistant.generate_voice_audio(response)
@@ -118,9 +126,9 @@ def process_input():
                 mimetype="audio/mpeg",
                 as_attachment=True,
                 download_name="response.mp3"
-            )
+            ), 200, {'X-Conversation-Name': conversation_name}
         else:
-            return jsonify({"response": response})
+            return jsonify({"response": response, "conversation_name": conversation_name})
     except Exception as e:
         logger.error(f"An error occurred during processing: {e}")
         return jsonify({"error": "An error occurred during processing"}), 500
