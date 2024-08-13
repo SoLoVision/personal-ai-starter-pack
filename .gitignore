@@ -24,6 +24,7 @@ venv.bak/
 .env.yaml
 .env.billing.yaml
 .env.billing.yml
+node_modules
 
 .aider*
 frontend/node_modules
@@ -39,8 +40,9 @@ modules/__pycache__
 *.flac
 *.m4a
 *.mp4
+build
 
-
+frontend/build
 
 # Allow frontend directory
 
