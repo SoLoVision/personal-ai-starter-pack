@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS, cross_origin
 import io
+import ssl
+from werkzeug.serving import run_simple
 from modules.constants import (
     PERSONAL_AI_ASSISTANT_PROMPT_HEAD,
     FS,
@@ -33,8 +35,12 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Configure CORS
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 load_dotenv()
+
+# SSL context
+ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+ssl_context.load_cert_chain('/Users/tech/Sandbox/solo-assist/ssl/cert.pem', '/Users/tech/Sandbox/solo-assist/ssl/key.pem')
 
 def build_prompt(latest_input: str, previous_interactions: List[Interaction]) -> str:
     previous_interactions_str = "\n".join(
@@ -204,4 +210,5 @@ def generate_title():
         return jsonify({'error': 'Failed to generate title', 'details': str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    run_simple('0.0.0.0', 3000, app, use_reloader=True)
+    run_simple('0.0.0.0', 3443, app, ssl_context=ssl_context, use_reloader=True)
